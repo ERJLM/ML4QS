@@ -76,7 +76,7 @@ def low_pass_filter(df):
         for user in df.user.unique():
             user_mask = df.user == user
             user_df = df[user_mask]
-            user_df = low_pass_filter_aux(df, col, sampling_frequency=100, cutoff_frequency=0.5, order=3)
+            user_df = low_pass_filter_aux(df, col, sampling_frequency=100, cutoff_frequency=0.5, order=5)
             
     return df
 
