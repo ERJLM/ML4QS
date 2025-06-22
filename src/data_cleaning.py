@@ -4,6 +4,8 @@ from sklearn.discriminant_analysis import StandardScaler
 from sklearn.neighbors import LocalOutlierFactor
 from scipy.signal import butter, lfilter, filtfilt
 from sklearn.decomposition import PCA
+from Python3Code.Chapter4.FrequencyAbstraction import FourierTransformation
+from Python3Code.Chapter4.TemporalAbstraction import NumericalAbstraction
 
 
 
@@ -68,17 +70,27 @@ def low_pass_filter_aux(data_table, col, sampling_frequency, cutoff_frequency, o
         return data_table
     
 def low_pass_filter(df):
-    
-    for col in df.columns.to_list():
-        if col in ["user", "seconds_elapsed"]:
-            continue
-        
-        for user in df.user.unique():
-            user_mask = df.user == user
-            user_df = df[user_mask]
-            user_df = low_pass_filter_aux(df, col, sampling_frequency=100, cutoff_frequency=0.5, order=5)
-            
-    return df
+    filtered_users = []
+
+    for user in df.user.unique():
+        user_mask = df.user == user
+        user_df = df[user_mask].copy()
+
+        for col in df.columns:
+            if col in ["user", "seconds_elapsed"]:
+                continue
+            user_df = low_pass_filter_aux(
+                user_df,
+                col,
+                sampling_frequency=100,
+                cutoff_frequency=0.5,
+                order=5
+            )
+
+        filtered_users.append(user_df)
+
+    return pd.concat(filtered_users).sort_index()
+
 
 def pca(df):
     """
@@ -106,6 +118,61 @@ def pca(df):
     df = pd.concat([df, df_pca], axis=1)
     
     return df
+
+def temp_abstraction(df, window_size=40, sampling_rate=100, columns_to_transform=[]):
+    na = NumericalAbstraction()
+    processed_users = []
+
+    # Process the data by user
+    for user in df.user.unique():
+        user_mask = df.user == user
+        user_df = df[user_mask].copy()
+
+        user_df = na.abstract_numerical(data_table=user_df, cols=columns_to_transform, window_size=window_size, aggregation_function_name='mean')
+        user_df = na.abstract_numerical(data_table=user_df, cols=columns_to_transform, window_size=window_size, aggregation_function_name='std')
+        user_df = na.abstract_numerical(data_table=user_df, cols=columns_to_transform, window_size=window_size, aggregation_function_name='min')
+        user_df = na.abstract_numerical(data_table=user_df, cols=columns_to_transform, window_size=window_size, aggregation_function_name='max')
+
+        processed_users.append(user_df)
+
+    # Recombine all processed user data
+    df = pd.concat(processed_users).sort_index()
+    return df
+
+def freq_abstraction(df, window_size=40, sampling_rate=100, columns_to_transform=[]):
+    # Apply Fourier Transformation
+    ft = FourierTransformation()
+    processed_users = []
+
+    for user in df.user.unique():
+        user_mask = df.user == user
+        user_df = df[user_mask].copy()
+
+        user_df = ft.abstract_frequency(
+            data_table=user_df,
+            columns=columns_to_transform,
+            window_size=window_size,
+            sampling_rate=sampling_rate
+        )
+
+        processed_users.append(user_df)
+
+    # Recombine all processed user data
+    df = pd.concat(processed_users).sort_index()
+    return df
+
+def feature_eng(df):
+    columns_to_transform = ['z_accelerometer_lowpass', 'y_accelerometer_lowpass', 'x_accelerometer_lowpass',
+                            'z_gyroscope_lowpass', 'y_gyroscope_lowpass', 'x_gyroscope_lowpass',
+                            'z_accelerometer', 'y_accelerometer', 'x_accelerometer', 'z_gyroscope', 'y_gyroscope', 'x_gyroscope'] 
+    
+    df = temp_abstraction(df, columns_to_transform=columns_to_transform)
+    df = freq_abstraction(df, columns_to_transform=columns_to_transform)
+    
+    return df
+
+    
+    
         
             
 
